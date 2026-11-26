@@ -39,6 +39,13 @@ jobs:
           npm install --legacy-peer-deps
           npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
 
+      - name: Switch Redirect Login to In-App Popup
+        run: |
+          if [ -d "src" ]; then
+            find src -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/signInWithRedirect/signInWithPopup/g' {} +
+          fi
+          find . -maxdepth 2 -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/signInWithRedirect/signInWithPopup/g' {} +
+
       - name: Build Web App
         run: npm run build
 
@@ -49,7 +56,8 @@ jobs:
           {
             "appId": "com.shakya.aistudio",
             "appName": "Shakya AI Studio",
-            "webDir": "dist"
+            "webDir": "dist",
+            "overrideUserAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
           }
           EOF
           npx cap add android
