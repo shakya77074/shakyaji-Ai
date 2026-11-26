@@ -41,10 +41,7 @@ jobs:
 
       - name: Switch Redirect Login to In-App Popup
         run: |
-          if [ -d "src" ]; then
-            find src -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/signInWithRedirect/signInWithPopup/g' {} +
-          fi
-          find . -maxdepth 2 -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/signInWithRedirect/signInWithPopup/g' {} +
+          find . -maxdepth 3 -not -path '*/node_modules/*' -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/signInWithRedirect/signInWithPopup/g' {} +
 
       - name: Build Web App
         run: npm run build
@@ -57,11 +54,81 @@ jobs:
             "appId": "com.shakya.aistudio",
             "appName": "Shakya AI Studio",
             "webDir": "dist",
-            "overrideUserAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+            "overrideUserAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
+            "server": {
+              "allowNavigation": [
+                "*.firebaseapp.com",
+                "*.google.com",
+                "accounts.google.com",
+                "*.googleapis.com"
+              ]
+            }
           }
           EOF
           npx cap add android
           npx cap sync android
+
+      - name: Enable In-App Popup Window in Android
+        run: |
+          cat << 'EOF' > android/app/src/main/java/com/shakya/aistudio/MainActivity.java
+          package com.shakya.aistudio;
+
+          import android.app.Dialog;
+          import android.os.Message;
+          import android.view.ViewGroup;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import com.getcapacitor.BridgeActivity;
+          import com.getcapacitor.BridgeWebChromeClient;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onStart() {
+                  super.onStart();
+                  WebView mainWebView = getBridge().getWebView();
+                  WebSettings mainSettings = mainWebView.getSettings();
+                  mainSettings.setSupportMultipleWindows(true);
+                  mainSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+                  mainWebView.setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
+                      @Override
+                      public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                          final Dialog dialog = new Dialog(MainActivity.this, android.R.style.Theme_DeviceDefault_NoActionBar);
+                          final WebView popupWebView = new WebView(MainActivity.this);
+                          WebSettings settings = popupWebView.getSettings();
+                          settings.setJavaScriptEnabled(true);
+                          settings.setDomStorageEnabled(true);
+                          settings.setDatabaseEnabled(true);
+                          settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36");
+
+                          popupWebView.setWebViewClient(new WebViewClient());
+                          popupWebView.setWebChromeClient(new WebChromeClient() {
+                              @Override
+                              public void onCloseWindow(WebView window) {
+                                  if (dialog.isShowing()) {
+                                      dialog.dismiss();
+                                  }
+                                  window.destroy();
+                              }
+                          });
+
+                          dialog.setContentView(popupWebView, new ViewGroup.LayoutParams(
+                              ViewGroup.LayoutParams.MATCH_PARENT,
+                              ViewGroup.LayoutParams.MATCH_PARENT
+                          ));
+                          dialog.show();
+
+                          WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                          transport.setWebView(popupWebView);
+                          resultMsg.sendToTarget();
+                          return true;
+                      }
+                  });
+              }
+          }
+          EOF
 
       - name: Fix Kotlin Duplicate Class Conflict
         run: |
