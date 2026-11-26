@@ -28,11 +28,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Install Dependencies & Capacitor
         run: |
@@ -44,9 +44,14 @@ jobs:
 
       - name: Configure and Add Android Platform
         run: |
-          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
-            npx cap init "Shakya AI Studio" "com.shakya.aistudio" --web-dir=dist
-          fi
+          rm -f capacitor.config.ts capacitor.config.json
+          cat << 'EOF' > capacitor.config.json
+          {
+            "appId": "com.shakya.aistudio",
+            "appName": "Shakya AI Studio",
+            "webDir": "dist"
+          }
+          EOF
           npx cap add android
           npx cap sync android
 
